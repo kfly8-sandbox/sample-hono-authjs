@@ -1,17 +1,34 @@
-import { Hono } from 'hono'
-import { renderer } from './renderer'
-import LoginBlock from "@/blocks/login"
+import LoginBlock from "@/blocks/login";
+import { drizzle } from "drizzle-orm/d1";
+import { Hono } from "hono";
+import { languageDetector } from "hono/language";
+import { users } from "./infra/schema";
+import { renderer } from "./renderer";
 
-const app = new Hono()
+type Bindings = {
+  D1: D1Database;
+};
 
-app.use(renderer)
+const app = new Hono<{ Bindings: Bindings }>();
 
-app.get('/', (c) => {
-  return c.render(
-    <>
-      <LoginBlock />
-    </>
-  )
-})
+app.use(
+  languageDetector({
+    supportedLanguages: ["en", "ja"],
+    fallbackLanguage: "en",
+  }),
+);
 
-export default app
+app.use(renderer);
+
+app.get("/", (c) => {
+  return c.render(<LoginBlock />);
+});
+
+app.get("/debug/users", async (c) => {
+  const db = drizzle(c.env.D1);
+  const rows = await db.select().from(users).all();
+
+  return c.json(rows, 200);
+});
+
+export default app;

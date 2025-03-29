@@ -1,8 +1,8 @@
-import path from "path"
-import { cloudflare } from '@cloudflare/vite-plugin'
-import { defineConfig } from 'vite'
-import ssrHotReload from 'vite-plugin-ssr-hot-reload'
-import tailwindcss from '@tailwindcss/vite'
+import path from "node:path";
+import { cloudflare } from "@cloudflare/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import ssrHotReload from "vite-plugin-ssr-hot-reload";
 
 export default defineConfig(({ mode }) => {
   const commonConfig = {
@@ -10,13 +10,13 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
-    }
-  }
+    },
+  };
 
-  if (mode === 'client') {
+  if (mode === "client") {
     return {
       ...commonConfig,
-      plugins: [ tailwindcss() ],
+      plugins: [tailwindcss()],
       build: {
         rollupOptions: {
           input: {
@@ -29,16 +29,15 @@ export default defineConfig(({ mode }) => {
         },
         copyPublicDir: true,
         minify: true,
-      }
-    }
-  }
-  else {
-    return {
-      ...commonConfig,
-      ssr: {
-        external: ['react', 'react-dom'],
       },
-      plugins: [ssrHotReload(), cloudflare(), tailwindcss()],
-    }
+    };
   }
-})
+
+  return {
+    ...commonConfig,
+    ssr: {
+      external: ["react", "react-dom"],
+    },
+    plugins: [ssrHotReload(), cloudflare(), tailwindcss()],
+  };
+});

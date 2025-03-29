@@ -5,7 +5,13 @@
     "dev": "vite",
     "build": "vite build --mode client",
     "preview": "bun run build && bunx wrangler dev",
-    "deploy": "bun run build && wrangler deploy"
+    "deploy": "bun run build && wrangler deploy",
+    "check:lint": "bunx biome check --write",
+    "check:type": "bunx tsc --noEmit --skipLibCheck",
+    "check": "bun run check:lint && bun run check:type",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:list": "wrangler d1 migrations list sample-hono-authjs",
+    "db:migrate:apply": "wrangler d1 migrations apply sample-hono-authjs"
   },
   "dependencies": {
     "@hono/react-renderer": "^0.3.0",
@@ -13,12 +19,16 @@
     "@radix-ui/react-slot": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.41.0",
     "hono": "^4.7.5",
     "lucide-react": "^0.485.0",
+    "neverthrow": "^8.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.0.2",
-    "tw-animate-css": "^1.2.5"
+    "tw-animate-css": "^1.2.5",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^0.1.15",
@@ -26,6 +36,8 @@
     "@tailwindcss/vite": "^4.0.17",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
+    "bun-types": "^1.2.7",
+    "drizzle-kit": "^0.30.6",
     "tailwindcss": "^4.0.17",
     "vite": "^6.1.1",
     "vite-plugin-ssr-hot-reload": "^0.2.2",
