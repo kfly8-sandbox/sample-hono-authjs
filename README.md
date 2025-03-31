@@ -102,11 +102,11 @@ sequenceDiagram
     
     Server->>DB: メールアドレス検証・制限チェック
     
-    alt 制限あり
+    alt メール送信制限チェック：制限あり
         DB->>Server: 制限情報
         Server->>Client: 送信制限エラー
         Client->>User: エラーメッセージ表示
-    else 制限なし
+    else メール送信制限チェック：制限なし
         Server->>Server: 認証コード生成(CSPRNG)
         Server->>DB: 認証コード(ハッシュ化)・有効期限保存
         Server->>Email: 認証コード送信要求
@@ -116,30 +116,30 @@ sequenceDiagram
         Client->>Server: 認証コード検証要求
         Server->>DB: ハッシュ比較・試行回数確認
         
-        alt 認証コード有効
+        alt 認証コード検証結果：コード有効
             DB->>Server: 検証成功
             Server->>DB: 認証コード無効化
             
-            alt 新規ユーザー
+            alt ユーザー種別：新規ユーザー
                 Server->>DB: 基本アカウント作成
                 Server->>Client: 認証成功・追加情報入力要求
                 Client->>User: 追加情報入力フォーム表示
                 User->>Client: 追加情報入力
                 Client->>Server: アカウント情報更新
                 Server->>DB: アカウント情報保存
-            else 既存ユーザー
+            else ユーザー種別：既存ユーザー
                 Server->>DB: セッション生成・保存
                 Server->>Client: 認証成功・セッション情報
             end
             
             Client->>User: ログイン完了・サービス画面表示
             
-        else 認証コード無効/期限切れ
+        else 認証コード検証結果：コード無効または期限切れ
             DB->>Server: 検証失敗・試行回数更新
             Server->>Client: 認証失敗・エラー情報
             Client->>User: エラーメッセージ表示
             
-            alt 試行回数上限超過
+            alt 認証失敗状態：試行回数上限超過
                 Server->>DB: アカウントロック設定
                 Server->>Client: アカウントロック通知
                 Client->>User: ロックメッセージ表示
