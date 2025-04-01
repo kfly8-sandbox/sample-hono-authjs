@@ -3,10 +3,6 @@ import { z } from "zod";
 // 基底となるメールアドレススキーマ
 const baseEmailSchema = z.string().email().max(255);
 
-// ドメインモデル：ユーザーが入力した検証前のメールアドレス
-export const unvalidatedEmailSchema = baseEmailSchema.brand<"UnvalidatedEmail">();
-export type UnvalidatedEmail = z.infer<typeof unvalidatedEmailSchema>;
-
 // ドメインモデル：検証済みのメールアドレス
 export const validatedEmailSchema = baseEmailSchema.brand<"ValidatedEmail">();
 export type ValidatedEmail = z.infer<typeof validatedEmailSchema>;
