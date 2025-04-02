@@ -9,9 +9,11 @@ import type {
   AuthCodeVerificationError,
   AuthCode,
   HashedAuthCode,
-  UnverifiedEmailId
+  UnverifiedEmailId,
+  AuthCodeInfo,
+  AuthCodeGenerationError
 } from "./email";
-import { validatedEmailSchema } from "./email";
+import { validatedEmailSchema, authCodeSchema, hashedAuthCodeSchema, authCodeInfoSchema } from "./email";
 import { createId } from "./helper";
 
 // メールアドレスのバリデーションをする
@@ -52,48 +54,114 @@ export function generateAuthCode(): string {
 // 認証コードをハッシュ化する関数型
 export type HashFunction = (value: string) => Promise<string>;
 
+// 認証コード情報を生成する
+export async function generateAuthCodeInfo(
+  options: {
+    generateAuthCodeFn?: () => string;
+    hashFn: HashFunction;
+    expirationMinutes?: number;
+  }
+): Promise<Result<AuthCodeInfo, AuthCodeGenerationError>> {
+  // 認証コードの生成
+  const authCodeGenerator = options.generateAuthCodeFn || generateAuthCode;
+  const authCodeValue = authCodeGenerator();
+  
+  // 認証コードの検証
+  const authCodeResult = authCodeSchema.safeParse(authCodeValue);
+  if (!authCodeResult.success) {
+    return err({
+      type: "AUTH_CODE_GENERATION_ERROR",
+      message: "認証コードの生成に失敗しました: 形式が不正です"
+    });
+  }
+  const authCode = authCodeResult.data;
+  
+  // 認証コードのハッシュ化
+  let hashedAuthCodeValue: string;
+  try {
+    hashedAuthCodeValue = await options.hashFn(authCode);
+  } catch {
+    return err({
+      type: "AUTH_CODE_GENERATION_ERROR",
+      message: "認証コードのハッシュ化に失敗しました"
+    });
+  }
+  
+  const hashedAuthCodeResult = hashedAuthCodeSchema.safeParse(hashedAuthCodeValue);
+  if (!hashedAuthCodeResult.success) {
+    return err({
+      type: "AUTH_CODE_GENERATION_ERROR",
+      message: "認証コードのハッシュ化に失敗しました"
+    });
+  }
+  const hashedAuthCode = hashedAuthCodeResult.data;
+  
+  // 有効期限の設定
+  const expirationMinutes = options.expirationMinutes || 30;
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + expirationMinutes);
+
+  // 認証コード情報の作成
+  const authCodeInfo: AuthCodeInfo = {
+    authCode,
+    hashedAuthCode,
+    expiresAt,
+    attempts: 0
+  };
+
+  return ok(authCodeInfo);
+}
+
 // 未検証メールオブジェクトを作成する
-export function createUnverifiedEmail(
+// 検証済みのメールアドレスとオプションから未検証メールを作成
+export async function createUnverifiedEmail(
   email: ValidatedEmail,
   options: {
     generateAuthCodeFn?: () => string;
     hashFn: HashFunction;
     expirationMinutes?: number;
   }
-): Promise<Result<UnverifiedEmail, AuthCodeSendError>> {
-  return new Promise<Result<UnverifiedEmail, AuthCodeSendError>>(async (resolve) => {
-    try {
-      // 認証コードの生成
-      const authCodeGenerator = options.generateAuthCodeFn || generateAuthCode;
-      const authCode = authCodeGenerator();
-      
-      // 認証コードのハッシュ化
-      const hashedAuthCode = await options.hashFn(authCode);
-      
-      // 有効期限の設定
-      const expirationMinutes = options.expirationMinutes || 30;
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + expirationMinutes);
+): Promise<Result<UnverifiedEmail, AuthCodeGenerationError>> {
+  // 認証コード情報を生成
+  const authCodeInfoResult = await generateAuthCodeInfo(options);
+  
+  if (authCodeInfoResult.isErr()) {
+    return authCodeInfoResult; // エラーをそのまま転送
+  }
+  
+  const authCodeInfo = authCodeInfoResult.value;
 
-      // 未検証メールアドレスオブジェクトの作成
-      const unverifiedEmail = {
-        email,
-        authCode: authCode as AuthCode,
-        hashedAuthCode: hashedAuthCode as HashedAuthCode,
-        expiresAt,
-        attempts: 0,
-        id: createId<UnverifiedEmailId>(),
-        createdAt: new Date()
-      } satisfies UnverifiedEmail;
+  // 未検証メールアドレスオブジェクトの作成
+  const unverifiedEmail: UnverifiedEmail = {
+    email,
+    authCode: authCodeInfo.authCode,
+    hashedAuthCode: authCodeInfo.hashedAuthCode,
+    expiresAt: authCodeInfo.expiresAt,
+    attempts: authCodeInfo.attempts,
+    id: createId<UnverifiedEmailId>(),
+    createdAt: new Date()
+  };
 
-      resolve(ok(unverifiedEmail));
-    } catch (error) {
-      resolve(err({
-        type: "EMAIL_SENDING_FAILED",
-        message: "認証コードの生成中にエラーが発生しました"
-      }));
-    }
-  });
+  return ok(unverifiedEmail);
+}
+
+// 検証済みのメールアドレスと認証コード情報から未検証メールを直接作成
+export function createUnverifiedEmailFromAuthCodeInfo(
+  email: ValidatedEmail,
+  authCodeInfo: AuthCodeInfo
+): Result<UnverifiedEmail, never> {
+  // 未検証メールアドレスオブジェクトの作成
+  const unverifiedEmail: UnverifiedEmail = {
+    email,
+    authCode: authCodeInfo.authCode,
+    hashedAuthCode: authCodeInfo.hashedAuthCode,
+    expiresAt: authCodeInfo.expiresAt,
+    attempts: authCodeInfo.attempts,
+    id: createId<UnverifiedEmailId>(),
+    createdAt: new Date()
+  };
+
+  return ok(unverifiedEmail);
 }
 
 // 認証コードの有効期限をチェックする純粋関数
