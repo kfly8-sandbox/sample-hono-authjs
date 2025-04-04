@@ -131,26 +131,6 @@ export async function createUnverifiedAuth(
 
   const authCodeInfo = authCodeInfoResult.value;
 
-  // 未検証認証オブジェクトの作成
-  const unverifiedAuth: UnverifiedAuth = {
-    info: validatedAuth,
-    authCode: authCodeInfo.authCode,
-    hashedAuthCode: authCodeInfo.hashedAuthCode,
-    expiresAt: authCodeInfo.expiresAt,
-    attempts: authCodeInfo.attempts,
-    id: createId<UnverifiedAuthId>(),
-    createdAt: new Date()
-  };
-
-  return ok(unverifiedAuth);
-}
-
-// 検証済みの認証識別子と認証コード情報から未検証認証を直接作成
-export function createUnverifiedAuthFromAuthCodeInfo(
-  validatedAuth: ValidatedAuth,
-  authCodeInfo: AuthCodeInfo
-): Result<UnverifiedAuth, never> {
-  // 未検証認証オブジェクトの作成
   const unverifiedAuth: UnverifiedAuth = {
     info: validatedAuth,
     authCode: authCodeInfo.authCode,
