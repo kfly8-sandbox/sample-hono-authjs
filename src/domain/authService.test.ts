@@ -5,9 +5,8 @@ import {
   createUnverifiedAuth,
   checkAuthCodeExpiration,
   checkMaxAttemptsReached,
-  verifyAuthCodeMatch,
+  verifyAuthCode,
   createVerifiedAuth,
-  type HashFunction
 } from "./authService";
 import {
   ValidatedAuth,
@@ -15,6 +14,8 @@ import {
   HashedAuthCode,
   UnverifiedAuthId
 } from "./auth";
+import type { HashFunction } from "../lib/crypto";
+import { verify } from "hono/jwt";
 
 describe("Authentication Service - Pure Functions", () => {
   describe("validateAuth", () => {
@@ -220,22 +221,29 @@ describe("Authentication Service - Pure Functions", () => {
     });
   });
 
-  describe("verifyAuthCodeMatch", () => {
-    it("should pass when codes match", () => {
+  describe("verifyAuthCode", () => {
+    // mock
+    const options = {
+      verifyAuthCodeFn: async (input: string, hash: string) => {
+        return input === hash;
+      }
+    }
+
+    it("should pass when codes match", async () => {
       const correctCode = "123456";
       const inputCode = "123456";
       const attempts = 0;
 
-      const result = verifyAuthCodeMatch(inputCode, correctCode, attempts);
+      const result = await verifyAuthCode(inputCode, correctCode, attempts, options);
       expect(result.isOk()).toBe(true);
     });
 
-    it("should fail when codes do not match", () => {
+    it("should fail when codes do not match", async () => {
       const correctCode = "123456";
       const inputCode = "654321";
       const attempts = 0;
 
-      const result = verifyAuthCodeMatch(inputCode, correctCode, attempts);
+      const result = await verifyAuthCode(inputCode, correctCode, attempts, options);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.type).toBe("INVALID_AUTH_CODE");
@@ -245,12 +253,12 @@ describe("Authentication Service - Pure Functions", () => {
       }
     });
 
-    it("should calculate remaining attempts correctly", () => {
+    it("should calculate remaining attempts correctly", async () => {
       const correctCode = "123456";
       const inputCode = "654321";
       const attempts = 3; // すでに3回試行済み
 
-      const result = verifyAuthCodeMatch(inputCode, correctCode, attempts);
+      const result = await verifyAuthCode(inputCode, correctCode, attempts, options);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.type).toBe("INVALID_AUTH_CODE");

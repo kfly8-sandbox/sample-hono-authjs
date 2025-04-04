@@ -15,6 +15,7 @@ import type {
 } from "./auth";
 import { validatedAuthSchema, authCodeSchema, hashedAuthCodeSchema, authCodeInfoSchema } from "./auth";
 import { createId } from "./helper";
+import { secureHash, verifySecureHash, type HashFunction } from "../lib/crypto";
 
 // 認証識別子のバリデーションをする
 export function validateAuth(
@@ -51,19 +52,19 @@ export function generateAuthCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// 認証コードをハッシュ化する関数型
-export type HashFunction = (value: string) => Promise<string>;
-
 // 認証コード情報を生成する
 export async function generateAuthCodeInfo(
   options: {
     generateAuthCodeFn?: () => string;
-    hashFn: HashFunction;
+    hashFn?: HashFunction;
     expirationMinutes?: number;
   }
 ): Promise<Result<AuthCodeInfo, AuthCodeGenerationError>> {
-  // 認証コードの生成
   const authCodeGenerator = options.generateAuthCodeFn || generateAuthCode;
+  const hashGenerator = options.hashFn || secureHash;
+  const expirationMinutes = options.expirationMinutes || 30;
+
+  // 認証コードの生成
   const authCodeValue = authCodeGenerator();
 
   // 認証コードの検証
@@ -76,11 +77,11 @@ export async function generateAuthCodeInfo(
   }
   const authCode = authCodeResult.data;
 
-  // 認証コードのハッシュ化
   let hashedAuthCodeValue: string;
   try {
-    hashedAuthCodeValue = await options.hashFn(authCode);
-  } catch {
+    // 認証コードのハッシュ化
+    hashedAuthCodeValue = await hashGenerator(authCode);
+  } catch (error) {
     return err({
       type: "AUTH_CODE_GENERATION_ERROR",
       message: "認証コードのハッシュ化に失敗しました"
@@ -96,20 +97,18 @@ export async function generateAuthCodeInfo(
   }
   const hashedAuthCode = hashedAuthCodeResult.data;
 
-  // 有効期限の設定
-  const expirationMinutes = options.expirationMinutes || 30;
   const expiresAt = new Date();
   expiresAt.setMinutes(expiresAt.getMinutes() + expirationMinutes);
 
   // 認証コード情報の作成
-  const authCodeInfo: AuthCodeInfo = {
+  const authCodeInfo = {
     authCode,
     hashedAuthCode,
     expiresAt,
     attempts: 0
-  };
+  } satisfies AuthCodeInfo;
 
-  return ok(authCodeInfo);
+  return ok(authCodeInfo)
 }
 
 // 未検証認証オブジェクトを作成する
@@ -179,15 +178,35 @@ export function checkMaxAttemptsReached(
   return ok(unverifiedAuth);
 }
 
-// 認証コードが一致するか確認する純粋関数（直接コード比較）
-export function verifyAuthCodeMatch(
+/**
+ * ハッシュ化された認証コードを比較する関数（より安全）
+ *
+ * この関数は、ハッシュ化済みの正しい認証コードと、
+ * ユーザーが入力した平文の認証コードを安全に比較します。
+ * 入力値を同じハッシュアルゴリズムでハッシュ化し、
+ * タイミング攻撃に強い方法で比較します。
+ *
+ * @param {string} inputAuthCode - ユーザーが入力した認証コード（平文）
+ * @param {string} hashedCorrectAuthCode - 正しい認証コードのハッシュ値
+ * @param {number} currentAttempts - 現在の試行回数
+ * @returns {Promise<Result<true, AuthCodeVerificationError>>} 検証結果
+ */
+export async function verifyAuthCode(
   inputAuthCode: string,
-  correctAuthCode: string,
+  hashedCorrectAuthCode: string,
   currentAttempts: number,
-  maxAttempts: number = 5
-): Result<true, AuthCodeVerificationError> {
-  // 認証コードの比較（平文同士の比較）
-  if (inputAuthCode !== correctAuthCode) {
+  options: {
+    maxAttempts?: number;
+    verifyAuthCodeFn?: (input: string, hashed: string) => Promise<boolean>;
+  } = {}
+): Promise<Result<true, AuthCodeVerificationError>> {
+  const maxAttempts = options.maxAttempts || 5;
+  const verifyAuthCodeFn = options.verifyAuthCodeFn || verifySecureHash;
+
+  const isEqual = await verifyAuthCodeFn(inputAuthCode, hashedCorrectAuthCode);
+
+  // 一致しない場合はエラーを返す
+  if (!isEqual) {
     const remainingAttempts = maxAttempts - (currentAttempts + 1);
 
     return err({
