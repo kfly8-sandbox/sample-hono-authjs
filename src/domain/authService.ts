@@ -1,31 +1,31 @@
 import { ok, err } from "neverthrow";
 import type { Result } from "neverthrow";
 import type {
-  ValidatedEmail,
-  UnverifiedEmail,
-  VerifiedEmail,
-  EmailValidationError,
+  ValidatedAuth,
+  UnverifiedAuth,
+  VerifiedAuth,
+  AuthValidationError,
   AuthCodeSendError,
   AuthCodeVerificationError,
   AuthCode,
   HashedAuthCode,
-  UnverifiedEmailId,
+  UnverifiedAuthId,
   AuthCodeInfo,
   AuthCodeGenerationError
-} from "./email";
-import { validatedEmailSchema, authCodeSchema, hashedAuthCodeSchema, authCodeInfoSchema } from "./email";
+} from "./auth";
+import { validatedAuthSchema, authCodeSchema, hashedAuthCodeSchema, authCodeInfoSchema } from "./auth";
 import { createId } from "./helper";
 
-// メールアドレスのバリデーションをする
-export function validateEmail(
-  unvalidatedEmail: unknown
-): Result<ValidatedEmail, EmailValidationError> {
+// 認証識別子のバリデーションをする
+export function validateAuth(
+  unvalidatedAuth: unknown
+): Result<ValidatedAuth, AuthValidationError> {
 
-  const result = validatedEmailSchema.safeParse(unvalidatedEmail);
+  const result = validatedAuthSchema.safeParse(unvalidatedAuth);
   if (!result.success) {
     return err({
-      type: "EMAIL_VALIDATION_ERROR",
-      message: "メールアドレスの検証に失敗しました"
+      type: "AUTH_VALIDATION_ERROR",
+      message: "認証識別子の検証に失敗しました"
     });
   }
 
@@ -37,8 +37,8 @@ export function validateEmail(
 
   if (domain && prohibitedDomains.includes(domain)) {
     return err({
-      type: "EMAIL_VALIDATION_ERROR",
-      message: "このドメインのメールアドレスは利用できません"
+      type: "AUTH_VALIDATION_ERROR",
+      message: "このドメインの認証識別子は利用できません"
     });
   }
 
@@ -112,16 +112,16 @@ export async function generateAuthCodeInfo(
   return ok(authCodeInfo);
 }
 
-// 未検証メールオブジェクトを作成する
-// 検証済みのメールアドレスとオプションから未検証メールを作成
-export async function createUnverifiedEmail(
-  email: ValidatedEmail,
+// 未検証認証オブジェクトを作成する
+// 検証済みの認証識別子とオプションから未検証認証を作成
+export async function createUnverifiedAuth(
+  email: ValidatedAuth,
   options: {
     generateAuthCodeFn?: () => string;
     hashFn: HashFunction;
     expirationMinutes?: number;
   }
-): Promise<Result<UnverifiedEmail, AuthCodeGenerationError>> {
+): Promise<Result<UnverifiedAuth, AuthCodeGenerationError>> {
   // 認証コード情報を生成
   const authCodeInfoResult = await generateAuthCodeInfo(options);
   
@@ -131,60 +131,60 @@ export async function createUnverifiedEmail(
   
   const authCodeInfo = authCodeInfoResult.value;
 
-  // 未検証メールアドレスオブジェクトの作成
-  const unverifiedEmail: UnverifiedEmail = {
+  // 未検証認証オブジェクトの作成
+  const unverifiedAuth: UnverifiedAuth = {
     email,
     authCode: authCodeInfo.authCode,
     hashedAuthCode: authCodeInfo.hashedAuthCode,
     expiresAt: authCodeInfo.expiresAt,
     attempts: authCodeInfo.attempts,
-    id: createId<UnverifiedEmailId>(),
+    id: createId<UnverifiedAuthId>(),
     createdAt: new Date()
   };
 
-  return ok(unverifiedEmail);
+  return ok(unverifiedAuth);
 }
 
-// 検証済みのメールアドレスと認証コード情報から未検証メールを直接作成
-export function createUnverifiedEmailFromAuthCodeInfo(
-  email: ValidatedEmail,
+// 検証済みの認証識別子と認証コード情報から未検証認証を直接作成
+export function createUnverifiedAuthFromAuthCodeInfo(
+  email: ValidatedAuth,
   authCodeInfo: AuthCodeInfo
-): Result<UnverifiedEmail, never> {
-  // 未検証メールアドレスオブジェクトの作成
-  const unverifiedEmail: UnverifiedEmail = {
+): Result<UnverifiedAuth, never> {
+  // 未検証認証オブジェクトの作成
+  const unverifiedAuth: UnverifiedAuth = {
     email,
     authCode: authCodeInfo.authCode,
     hashedAuthCode: authCodeInfo.hashedAuthCode,
     expiresAt: authCodeInfo.expiresAt,
     attempts: authCodeInfo.attempts,
-    id: createId<UnverifiedEmailId>(),
+    id: createId<UnverifiedAuthId>(),
     createdAt: new Date()
   };
 
-  return ok(unverifiedEmail);
+  return ok(unverifiedAuth);
 }
 
 // 認証コードの有効期限をチェックする純粋関数
 export function checkAuthCodeExpiration(
-  unverifiedEmail: UnverifiedEmail
-): Result<UnverifiedEmail, AuthCodeVerificationError> {
+  unverifiedAuth: UnverifiedAuth
+): Result<UnverifiedAuth, AuthCodeVerificationError> {
   // 有効期限切れのチェック
-  if (new Date() > unverifiedEmail.expiresAt) {
+  if (new Date() > unverifiedAuth.expiresAt) {
     return err({
       type: "AUTH_CODE_EXPIRED",
       message: "認証コードの有効期限が切れています。新しいコードを送信してください。"
     });
   }
 
-  return ok(unverifiedEmail);
+  return ok(unverifiedAuth);
 }
 
 // 試行回数が上限に達しているかチェックする純粋関数
 export function checkMaxAttemptsReached(
-  unverifiedEmail: UnverifiedEmail,
+  unverifiedAuth: UnverifiedAuth,
   maxAttempts: number = 5
-): Result<UnverifiedEmail, AuthCodeVerificationError> {
-  if (unverifiedEmail.attempts >= maxAttempts) {
+): Result<UnverifiedAuth, AuthCodeVerificationError> {
+  if (unverifiedAuth.attempts >= maxAttempts) {
     // アカウントロック - ロック解除時間を計算
     const unlockAt = new Date();
     unlockAt.setMinutes(unlockAt.getMinutes() + 10); // 10分間ロック
@@ -196,7 +196,7 @@ export function checkMaxAttemptsReached(
     });
   }
 
-  return ok(unverifiedEmail);
+  return ok(unverifiedAuth);
 }
 
 // 認証コードが一致するか確認する純粋関数（直接コード比較）
@@ -220,10 +220,10 @@ export function verifyAuthCodeMatch(
   return ok(true);
 }
 
-// 検証済みメールアドレスを生成する純粋関数
-export function createVerifiedEmail(
-  email: ValidatedEmail
-): VerifiedEmail {
+// 検証済み認証情報を生成する純粋関数
+export function createVerifiedAuth(
+  email: ValidatedAuth
+): VerifiedAuth {
   return {
     email,
     verifiedAt: new Date()

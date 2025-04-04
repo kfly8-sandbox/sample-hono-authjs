@@ -1,42 +1,42 @@
 import { describe, it, expect } from "bun:test";
 import {
-  unvalidatedEmailSchema,
-  validatedEmailSchema,
-  unverifiedEmailSchema,
-  verifiedEmailSchema,
-} from "./email";
+  unvalidatedAuthSchema,
+  validatedAuthSchema,
+  unverifiedAuthSchema,
+  verifiedAuthSchema,
+} from "./auth";
 
-describe("Email Domain Models", () => {
-  describe("UnvalidatedEmail", () => {
-    it("should validate a proper email", () => {
-      const result = unvalidatedEmailSchema.safeParse("test@example.com");
+describe("Authentication Domain Models", () => {
+  describe("UnvalidatedAuth", () => {
+    it("should validate a proper identifier", () => {
+      const result = unvalidatedAuthSchema.safeParse("test@example.com");
       expect(result.success).toBe(true);
     });
 
-    it("should reject an invalid email", () => {
-      const result = unvalidatedEmailSchema.safeParse("not-an-email");
+    it("should reject an invalid identifier", () => {
+      const result = unvalidatedAuthSchema.safeParse("not-an-email");
       expect(result.success).toBe(false);
     });
   });
 
-  describe("ValidatedEmail", () => {
-    it("should validate a proper email", () => {
-      const result = validatedEmailSchema.safeParse("test@example.com");
+  describe("ValidatedAuth", () => {
+    it("should validate a proper identifier", () => {
+      const result = validatedAuthSchema.safeParse("test@example.com");
       expect(result.success).toBe(true);
     });
 
-    it("should reject an invalid email", () => {
-      const result = validatedEmailSchema.safeParse("not-an-email");
+    it("should reject an invalid identifier", () => {
+      const result = validatedAuthSchema.safeParse("not-an-email");
       expect(result.success).toBe(false);
     });
   });
 
-  describe("UnverifiedEmail", () => {
-    it("should validate a proper unverified email object", () => {
+  describe("UnverifiedAuth", () => {
+    it("should validate a proper unverified auth object", () => {
       const now = new Date();
       const future = new Date(now.getTime() + 1000 * 60 * 30); // 30 minutes in the future
 
-      const unverifiedEmail = {
+      const unverifiedAuth = {
         email: "test@example.com",
         authCode: "123456",
         hashedAuthCode: "hashed-auth-code",
@@ -46,7 +46,7 @@ describe("Email Domain Models", () => {
         createdAt: now,
       };
 
-      const result = unverifiedEmailSchema.safeParse(unverifiedEmail);
+      const result = unverifiedAuthSchema.safeParse(unverifiedAuth);
       expect(result.success).toBe(true);
     });
 
@@ -54,7 +54,7 @@ describe("Email Domain Models", () => {
       const now = new Date();
       const future = new Date(now.getTime() + 1000 * 60 * 30);
 
-      const unverifiedEmail = {
+      const unverifiedAuth = {
         email: "test@example.com",
         authCode: "12345a", // Contains a letter
         hashedAuthCode: "hashed-auth-code",
@@ -64,7 +64,7 @@ describe("Email Domain Models", () => {
         createdAt: now,
       };
 
-      const result = unverifiedEmailSchema.safeParse(unverifiedEmail);
+      const result = unverifiedAuthSchema.safeParse(unverifiedAuth);
       expect(result.success).toBe(false);
     });
 
@@ -72,7 +72,7 @@ describe("Email Domain Models", () => {
       const now = new Date();
       const future = new Date(now.getTime() + 1000 * 60 * 30);
 
-      const unverifiedEmail = {
+      const unverifiedAuth = {
         email: "test@example.com",
         authCode: "12345", // Only 5 digits
         hashedAuthCode: "hashed-auth-code",
@@ -82,7 +82,7 @@ describe("Email Domain Models", () => {
         createdAt: now,
       };
 
-      const result = unverifiedEmailSchema.safeParse(unverifiedEmail);
+      const result = unverifiedAuthSchema.safeParse(unverifiedAuth);
       expect(result.success).toBe(false);
     });
 
@@ -90,7 +90,7 @@ describe("Email Domain Models", () => {
       const now = new Date();
       const future = new Date(now.getTime() + 1000 * 60 * 30);
 
-      const unverifiedEmail = {
+      const unverifiedAuth = {
         email: "test@example.com",
         authCode: "123456",
         hashedAuthCode: "hashed-auth-code",
@@ -100,29 +100,29 @@ describe("Email Domain Models", () => {
         createdAt: now,
       };
 
-      const result = unverifiedEmailSchema.safeParse(unverifiedEmail);
+      const result = unverifiedAuthSchema.safeParse(unverifiedAuth);
       expect(result.success).toBe(false);
     });
   });
 
-  describe("VerifiedEmail", () => {
-    it("should validate a proper verified email object", () => {
-      const verifiedEmail = {
+  describe("VerifiedAuth", () => {
+    it("should validate a proper verified auth object", () => {
+      const verifiedAuth = {
         email: "test@example.com",
         verifiedAt: new Date(),
       };
 
-      const result = verifiedEmailSchema.safeParse(verifiedEmail);
+      const result = verifiedAuthSchema.safeParse(verifiedAuth);
       expect(result.success).toBe(true);
     });
 
-    it("should reject an invalid email", () => {
-      const verifiedEmail = {
+    it("should reject an invalid identifier", () => {
+      const verifiedAuth = {
         email: "not-an-email",
         verifiedAt: new Date(),
       };
 
-      const result = verifiedEmailSchema.safeParse(verifiedEmail);
+      const result = verifiedAuthSchema.safeParse(verifiedAuth);
       expect(result.success).toBe(false);
     });
   });

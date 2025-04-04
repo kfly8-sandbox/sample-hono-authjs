@@ -1,15 +1,15 @@
 import { z } from "zod";
 
-// 基底となるメールアドレススキーマ
-const baseEmailSchema = z.string().email().max(255);
+// 基底となる認証識別子スキーマ（メールアドレスなど）
+const baseIdentifierSchema = z.string().email().max(255);
 
-// ドメインモデル：未検証のメールアドレス
-export const unvalidatedEmailSchema = baseEmailSchema;
-export type UnvalidatedEmail = z.infer<typeof unvalidatedEmailSchema>;
+// ドメインモデル：未検証の認証識別子
+export const unvalidatedAuthSchema = baseIdentifierSchema;
+export type UnvalidatedAuth = z.infer<typeof unvalidatedAuthSchema>;
 
-// ドメインモデル：検証済みのメールアドレス
-export const validatedEmailSchema = baseEmailSchema.brand<"ValidatedEmail">();
-export type ValidatedEmail = z.infer<typeof validatedEmailSchema>;
+// ドメインモデル：検証済みの認証識別子
+export const validatedAuthSchema = baseIdentifierSchema.brand<"ValidatedAuth">();
+export type ValidatedAuth = z.infer<typeof validatedAuthSchema>;
 
 // 認証コード関連の型
 export const authCodeSchema = z.string().length(6).regex(/^\d+$/).brand<"AuthCode">();
@@ -27,29 +27,29 @@ export const authCodeInfoSchema = z.object({
 });
 export type AuthCodeInfo = z.infer<typeof authCodeInfoSchema>;
 
-// ドメインモデル：認証コードを送信したが、まだ検証されていないメールアドレス
-export const unverifiedEmailSchema = z.object({
-  email: validatedEmailSchema,
+// ドメインモデル：認証コードを送信したが、まだ検証されていない認証情報
+export const unverifiedAuthSchema = z.object({
+  email: validatedAuthSchema,
   authCode: authCodeSchema,
   hashedAuthCode: hashedAuthCodeSchema,
   expiresAt: z.date(),
   attempts: z.number().int().min(0),
-  id: z.string().uuid().brand<"UnverifiedEmailId">(),
+  id: z.string().uuid().brand<"UnverifiedAuthId">(),
   createdAt: z.date(),
 });
-export type UnverifiedEmail = z.infer<typeof unverifiedEmailSchema>;
-export type UnverifiedEmailId = z.infer<typeof unverifiedEmailSchema.shape.id>;
+export type UnverifiedAuth = z.infer<typeof unverifiedAuthSchema>;
+export type UnverifiedAuthId = z.infer<typeof unverifiedAuthSchema.shape.id>;
 
-// ドメインモデル：認証コードが検証されたメールアドレス
-export const verifiedEmailSchema = z.object({
-  email: validatedEmailSchema,
+// ドメインモデル：認証コードが検証された認証情報
+export const verifiedAuthSchema = z.object({
+  email: validatedAuthSchema,
   verifiedAt: z.date(),
 });
-export type VerifiedEmail = z.infer<typeof verifiedEmailSchema>;
+export type VerifiedAuth = z.infer<typeof verifiedAuthSchema>;
 
 // エラータイプ
-export type EmailValidationError = {
-  type: "EMAIL_VALIDATION_ERROR";
+export type AuthValidationError = {
+  type: "AUTH_VALIDATION_ERROR";
   message: string;
 };
 

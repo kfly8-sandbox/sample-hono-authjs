@@ -1,26 +1,26 @@
 import { describe, it, expect } from "bun:test";
 import {
-  validateEmail,
+  validateAuth,
   generateAuthCode,
-  createUnverifiedEmail,
+  createUnverifiedAuth,
   checkAuthCodeExpiration,
   checkMaxAttemptsReached,
   verifyAuthCodeMatch,
-  createVerifiedEmail,
+  createVerifiedAuth,
   type HashFunction
-} from "./emailService";
+} from "./authService";
 import {
-  ValidatedEmail,
+  ValidatedAuth,
   AuthCode,
   HashedAuthCode,
-  UnverifiedEmailId
-} from "./email";
+  UnverifiedAuthId
+} from "./auth";
 
-describe("Email Service - Pure Functions", () => {
-  describe("validateEmail", () => {
-    it("should validate a correct email", async () => {
+describe("Authentication Service - Pure Functions", () => {
+  describe("validateAuth", () => {
+    it("should validate a correct identifier", async () => {
       const email = "test@example.com";
-      const result = validateEmail(email);
+      const result = validateAuth(email);
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(typeof result.value).toBe("string");
@@ -29,19 +29,19 @@ describe("Email Service - Pure Functions", () => {
 
     it("should reject prohibited domains", async () => {
       const email = "test@example.org";
-      const result = validateEmail(email);
+      const result = validateAuth(email);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.type).toBe("EMAIL_VALIDATION_ERROR");
+        expect(result.error.type).toBe("AUTH_VALIDATION_ERROR");
       }
     });
 
-    it("should reject invalid email format", async () => {
+    it("should reject invalid identifier format", async () => {
       const email = "not-an-email";
-      const result = validateEmail(email);
+      const result = validateAuth(email);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
-        expect(result.error.type).toBe("EMAIL_VALIDATION_ERROR");
+        expect(result.error.type).toBe("AUTH_VALIDATION_ERROR");
       }
     });
   });
@@ -54,53 +54,53 @@ describe("Email Service - Pure Functions", () => {
     });
   });
 
-  describe("createUnverifiedEmail", () => {
+  describe("createUnverifiedAuth", () => {
     const mockHashFn: HashFunction = async (value) => `hashed-${value}`;
 
-    it("should create an UnverifiedEmail object with generated auth code", async () => {
-      const email = "test@example.com" as ValidatedEmail;
+    it("should create an UnverifiedAuth object with generated auth code", async () => {
+      const email = "test@example.com" as ValidatedAuth;
       
-      const result = await createUnverifiedEmail(email, {
+      const result = await createUnverifiedAuth(email, {
         hashFn: mockHashFn
       });
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const unverifiedEmail = result.value;
-        expect(unverifiedEmail.email).toBe(email);
-        expect(typeof unverifiedEmail.authCode).toBe("string");
-        expect(unverifiedEmail.authCode.length).toBe(6);
-        expect(unverifiedEmail.hashedAuthCode).toBe(`hashed-${unverifiedEmail.authCode}`);
-        expect(unverifiedEmail.attempts).toBe(0);
-        expect(unverifiedEmail.expiresAt).toBeInstanceOf(Date);
-        expect(unverifiedEmail.id).toBeDefined();
-        expect(unverifiedEmail.createdAt).toBeInstanceOf(Date);
+        const unverifiedAuth = result.value;
+        expect(unverifiedAuth.email).toBe(email);
+        expect(typeof unverifiedAuth.authCode).toBe("string");
+        expect(unverifiedAuth.authCode.length).toBe(6);
+        expect(unverifiedAuth.hashedAuthCode).toBe(`hashed-${unverifiedAuth.authCode}`);
+        expect(unverifiedAuth.attempts).toBe(0);
+        expect(unverifiedAuth.expiresAt).toBeInstanceOf(Date);
+        expect(unverifiedAuth.id).toBeDefined();
+        expect(unverifiedAuth.createdAt).toBeInstanceOf(Date);
       }
     });
 
     it("should use custom auth code generator when provided", async () => {
-      const email = "test@example.com" as ValidatedEmail;
+      const email = "test@example.com" as ValidatedAuth;
       const customCode = "123456";
       
-      const result = await createUnverifiedEmail(email, {
+      const result = await createUnverifiedAuth(email, {
         generateAuthCodeFn: () => customCode,
         hashFn: mockHashFn
       });
       
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        const unverifiedEmail = result.value;
-        expect(unverifiedEmail.authCode).toBe(customCode);
-        expect(unverifiedEmail.hashedAuthCode).toBe(`hashed-${customCode}`);
+        const unverifiedAuth = result.value;
+        expect(unverifiedAuth.authCode).toBe(customCode);
+        expect(unverifiedAuth.hashedAuthCode).toBe(`hashed-${customCode}`);
       }
     });
 
     it("should set the correct expiration time", async () => {
-      const email = "test@example.com" as ValidatedEmail;
+      const email = "test@example.com" as ValidatedAuth;
       const expirationMinutes = 60; // 1時間
       
       const now = new Date();
-      const result = await createUnverifiedEmail(email, {
+      const result = await createUnverifiedAuth(email, {
         hashFn: mockHashFn,
         expirationMinutes
       });
@@ -118,40 +118,40 @@ describe("Email Service - Pure Functions", () => {
 
   describe("checkAuthCodeExpiration", () => {
     it("should pass for a non-expired code", () => {
-      const email = "test@example.com" as ValidatedEmail;
+      const email = "test@example.com" as ValidatedAuth;
       const future = new Date();
       future.setMinutes(future.getMinutes() + 30); // 30分後
       
-      const unverifiedEmail = {
+      const unverifiedAuth = {
         email,
         authCode: "123456" as AuthCode,
         hashedAuthCode: "hashed-code" as HashedAuthCode,
         expiresAt: future,
         attempts: 0,
-        id: "test-id" as UnverifiedEmailId,
+        id: "test-id" as UnverifiedAuthId,
         createdAt: new Date()
       };
       
-      const result = checkAuthCodeExpiration(unverifiedEmail);
+      const result = checkAuthCodeExpiration(unverifiedAuth);
       expect(result.isOk()).toBe(true);
     });
     
     it("should fail for an expired code", () => {
-      const email = "test@example.com" as ValidatedEmail;
+      const email = "test@example.com" as ValidatedAuth;
       const past = new Date();
       past.setMinutes(past.getMinutes() - 5); // 5分前
       
-      const unverifiedEmail = {
+      const unverifiedAuth = {
         email,
         authCode: "123456" as AuthCode,
         hashedAuthCode: "hashed-code" as HashedAuthCode,
         expiresAt: past,
         attempts: 0,
-        id: "test-id" as UnverifiedEmailId,
+        id: "test-id" as UnverifiedAuthId,
         createdAt: new Date()
       };
       
-      const result = checkAuthCodeExpiration(unverifiedEmail);
+      const result = checkAuthCodeExpiration(unverifiedAuth);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.type).toBe("AUTH_CODE_EXPIRED");
@@ -161,34 +161,34 @@ describe("Email Service - Pure Functions", () => {
 
   describe("checkMaxAttemptsReached", () => {
     it("should pass when attempts are below the maximum", () => {
-      const email = "test@example.com" as ValidatedEmail;
-      const unverifiedEmail = {
+      const email = "test@example.com" as ValidatedAuth;
+      const unverifiedAuth = {
         email,
         authCode: "123456" as AuthCode,
         hashedAuthCode: "hashed-code" as HashedAuthCode,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
         attempts: 3, // 最大値(デフォルト5)未満
-        id: "test-id" as UnverifiedEmailId,
+        id: "test-id" as UnverifiedAuthId,
         createdAt: new Date()
       };
       
-      const result = checkMaxAttemptsReached(unverifiedEmail);
+      const result = checkMaxAttemptsReached(unverifiedAuth);
       expect(result.isOk()).toBe(true);
     });
     
     it("should fail when attempts have reached the maximum", () => {
-      const email = "test@example.com" as ValidatedEmail;
-      const unverifiedEmail = {
+      const email = "test@example.com" as ValidatedAuth;
+      const unverifiedAuth = {
         email,
         authCode: "123456" as AuthCode,
         hashedAuthCode: "hashed-code" as HashedAuthCode,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
         attempts: 5, // 最大値(デフォルト5)と同じ
-        id: "test-id" as UnverifiedEmailId,
+        id: "test-id" as UnverifiedAuthId,
         createdAt: new Date()
       };
       
-      const result = checkMaxAttemptsReached(unverifiedEmail);
+      const result = checkMaxAttemptsReached(unverifiedAuth);
       expect(result.isErr()).toBe(true);
       if (result.isErr()) {
         expect(result.error.type).toBe("ACCOUNT_LOCKED");
@@ -199,24 +199,24 @@ describe("Email Service - Pure Functions", () => {
     });
     
     it("should respect a custom max attempts value", () => {
-      const email = "test@example.com" as ValidatedEmail;
-      const unverifiedEmail = {
+      const email = "test@example.com" as ValidatedAuth;
+      const unverifiedAuth = {
         email,
         authCode: "123456" as AuthCode,
         hashedAuthCode: "hashed-code" as HashedAuthCode,
         expiresAt: new Date(Date.now() + 30 * 60 * 1000),
         attempts: 2,
-        id: "test-id" as UnverifiedEmailId,
+        id: "test-id" as UnverifiedAuthId,
         createdAt: new Date()
       };
       
       // カスタム最大試行回数3で、2回の試行は有効
-      const result1 = checkMaxAttemptsReached(unverifiedEmail, 3);
+      const result1 = checkMaxAttemptsReached(unverifiedAuth, 3);
       expect(result1.isOk()).toBe(true);
       
       // 3回に達すると失敗
-      const unverifiedEmail2 = { ...unverifiedEmail, attempts: 3 };
-      const result2 = checkMaxAttemptsReached(unverifiedEmail2, 3);
+      const unverifiedAuth2 = { ...unverifiedAuth, attempts: 3 };
+      const result2 = checkMaxAttemptsReached(unverifiedAuth2, 3);
       expect(result2.isErr()).toBe(true);
     });
   });
@@ -258,17 +258,17 @@ describe("Email Service - Pure Functions", () => {
     });
   });
 
-  describe("createVerifiedEmail", () => {
-    it("should create a VerifiedEmail object with the current date", () => {
-      const email = "test@example.com" as ValidatedEmail;
+  describe("createVerifiedAuth", () => {
+    it("should create a VerifiedAuth object with the current date", () => {
+      const email = "test@example.com" as ValidatedAuth;
       const now = new Date();
       
-      const verifiedEmail = createVerifiedEmail(email);
-      expect(verifiedEmail.email).toBe(email);
-      expect(verifiedEmail.verifiedAt).toBeInstanceOf(Date);
+      const verifiedAuth = createVerifiedAuth(email);
+      expect(verifiedAuth.email).toBe(email);
+      expect(verifiedAuth.verifiedAt).toBeInstanceOf(Date);
       
       // 現在時刻に近い時刻が設定されていることを確認
-      const timeDiff = Math.abs(verifiedEmail.verifiedAt.getTime() - now.getTime());
+      const timeDiff = Math.abs(verifiedAuth.verifiedAt.getTime() - now.getTime());
       expect(timeDiff).toBeLessThan(100); // 100ミリ秒以内
     });
   });
