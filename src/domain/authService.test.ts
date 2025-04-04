@@ -17,7 +17,7 @@ import {
 import type { HashFunction } from "../lib/crypto";
 import { verify } from "hono/jwt";
 
-describe("Authentication Service - Pure Functions", () => {
+describe("Authentication Service", () => {
   describe("validateAuth", () => {
     it("should validate a correct identifier", async () => {
       const email = "test@example.com";

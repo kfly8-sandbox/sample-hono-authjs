@@ -1,3 +1,16 @@
+/**
+ * 認証サービス - Authentication Service
+ *
+ * このモジュールは認証に関連する操作を処理するためのサービスです。
+ * 主な機能：
+ * - 認証識別子（メールアドレスなど）のバリデーション
+ * - 認証コードの生成と検証
+ * - 未検証認証オブジェクトの作成
+ * - 検証済み認証情報の生成
+ * 
+ * 本サービスは Pure Domain Service であり、永続化などの外部依存を持ちません。
+ */
+
 import { ok, err } from "neverthrow";
 import type { Result } from "neverthrow";
 import type {
@@ -17,7 +30,15 @@ import { validatedAuthSchema, authCodeSchema, hashedAuthCodeSchema, authCodeInfo
 import { createId } from "./helper";
 import { secureHash, verifySecureHash, type HashFunction } from "../lib/crypto";
 
-// 認証識別子のバリデーションをする
+/**
+ * 認証識別子のバリデーションを行う
+ * 
+ * 与えられた未検証の認証識別子（主にメールアドレス）を検証し、
+ * 禁止ドメインのチェックも行います。
+ * 
+ * @param {unknown} unvalidatedAuth - 検証する認証識別子
+ * @returns {Result<ValidatedAuth, AuthValidationError>} 検証結果
+ */
 export function validateAuth(
   unvalidatedAuth: unknown
 ): Result<ValidatedAuth, AuthValidationError> {
@@ -46,13 +67,29 @@ export function validateAuth(
   return ok(result.data);
 }
 
-// 6桁の認証コードを生成する
+/**
+ * 6桁の認証コードを生成する
+ * 
+ * 100000から999999までのランダムな6桁の数字を生成します。
+ * 
+ * @returns {string} 生成された6桁の認証コード
+ */
 export function generateAuthCode(): string {
   // 100000から999999までの乱数を生成
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// 認証コード情報を生成する
+/**
+ * 認証コード情報を生成する
+ * 
+ * 認証コードを生成し、ハッシュ化して、有効期限と共に認証コード情報を作成します。
+ * 
+ * @param {Object} options - オプション
+ * @param {() => string} [options.generateAuthCodeFn] - 認証コード生成関数
+ * @param {HashFunction} [options.hashFn] - ハッシュ関数
+ * @param {number} [options.expirationMinutes] - 有効期限（分）
+ * @returns {Promise<Result<AuthCodeInfo, AuthCodeGenerationError>>} 生成された認証コード情報
+ */
 export async function generateAuthCodeInfo(
   options: {
     generateAuthCodeFn?: () => string;
@@ -111,8 +148,18 @@ export async function generateAuthCodeInfo(
   return ok(authCodeInfo)
 }
 
-// 未検証認証オブジェクトを作成する
-// 検証済みの認証識別子とオプションから未検証認証を作成
+/**
+ * 未検証認証オブジェクトを作成する
+ * 
+ * 検証済みの認証識別子を元に、認証コードを含む未検証認証オブジェクトを作成します。
+ * 
+ * @param {ValidatedAuth} validatedAuth - 検証済みの認証識別子
+ * @param {Object} options - オプション
+ * @param {() => string} [options.generateAuthCodeFn] - 認証コード生成関数
+ * @param {HashFunction} options.hashFn - ハッシュ関数
+ * @param {number} [options.expirationMinutes] - 有効期限（分）
+ * @returns {Promise<Result<UnverifiedAuth, AuthCodeGenerationError>>} 作成された未検証認証オブジェクト
+ */
 export async function createUnverifiedAuth(
   validatedAuth: ValidatedAuth,
   options: {
@@ -143,7 +190,14 @@ export async function createUnverifiedAuth(
   return ok(unverifiedAuth);
 }
 
-// 認証コードの有効期限をチェックする純粋関数
+/**
+ * 認証コードの有効期限をチェックする純粋関数
+ * 
+ * 未検証認証オブジェクトの有効期限を確認し、期限切れかどうかを判定します。
+ * 
+ * @param {UnverifiedAuth} unverifiedAuth - 未検証認証オブジェクト
+ * @returns {Result<UnverifiedAuth, AuthCodeVerificationError>} チェック結果
+ */
 export function checkAuthCodeExpiration(
   unverifiedAuth: UnverifiedAuth
 ): Result<UnverifiedAuth, AuthCodeVerificationError> {
@@ -158,7 +212,16 @@ export function checkAuthCodeExpiration(
   return ok(unverifiedAuth);
 }
 
-// 試行回数が上限に達しているかチェックする純粋関数
+/**
+ * 試行回数が上限に達しているかチェックする純粋関数
+ * 
+ * 未検証認証オブジェクトの試行回数を確認し、上限に達しているかを判定します。
+ * 上限に達している場合は一時的なアカウントロックを行います。
+ * 
+ * @param {UnverifiedAuth} unverifiedAuth - 未検証認証オブジェクト
+ * @param {number} [maxAttempts=5] - 最大試行回数
+ * @returns {Result<UnverifiedAuth, AuthCodeVerificationError>} チェック結果
+ */
 export function checkMaxAttemptsReached(
   unverifiedAuth: UnverifiedAuth,
   maxAttempts: number = 5
@@ -179,7 +242,7 @@ export function checkMaxAttemptsReached(
 }
 
 /**
- * ハッシュ化された認証コードを比較する関数（より安全）
+ * ハッシュ化された認証コードを比較する関数
  *
  * この関数は、ハッシュ化済みの正しい認証コードと、
  * ユーザーが入力した平文の認証コードを安全に比較します。
@@ -189,6 +252,9 @@ export function checkMaxAttemptsReached(
  * @param {string} inputAuthCode - ユーザーが入力した認証コード（平文）
  * @param {string} hashedCorrectAuthCode - 正しい認証コードのハッシュ値
  * @param {number} currentAttempts - 現在の試行回数
+ * @param {Object} [options] - オプション
+ * @param {number} [options.maxAttempts] - 最大試行回数
+ * @param {(input: string, hashed: string) => Promise<boolean>} [options.verifyAuthCodeFn] - 検証関数
  * @returns {Promise<Result<true, AuthCodeVerificationError>>} 検証結果
  */
 export async function verifyAuthCode(
@@ -219,7 +285,14 @@ export async function verifyAuthCode(
   return ok(true);
 }
 
-// 検証済み認証情報を生成する純粋関数
+/**
+ * 検証済み認証情報を生成する純粋関数
+ * 
+ * 認証識別子を元に、検証済みの認証情報を作成します。
+ * 
+ * @param {ValidatedAuth} info - 検証済みの認証識別子
+ * @returns {VerifiedAuth} 検証済み認証情報
+ */
 export function createVerifiedAuth(
   info: ValidatedAuth
 ): VerifiedAuth {
