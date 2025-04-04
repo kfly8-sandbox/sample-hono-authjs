@@ -29,7 +29,7 @@ export function validateAuth(
     });
   }
 
-  const email = result.data
+  const email = result.data.email
 
   // 禁止ドメインチェック（実際のルールはビジネス要件に応じて変更）
   const prohibitedDomains = ['example.org', 'temp-mail.com'];
@@ -42,7 +42,7 @@ export function validateAuth(
     });
   }
 
-  return ok(email);
+  return ok(result.data);
 }
 
 // 6桁の認証コードを生成する
@@ -65,7 +65,7 @@ export async function generateAuthCodeInfo(
   // 認証コードの生成
   const authCodeGenerator = options.generateAuthCodeFn || generateAuthCode;
   const authCodeValue = authCodeGenerator();
-  
+
   // 認証コードの検証
   const authCodeResult = authCodeSchema.safeParse(authCodeValue);
   if (!authCodeResult.success) {
@@ -75,7 +75,7 @@ export async function generateAuthCodeInfo(
     });
   }
   const authCode = authCodeResult.data;
-  
+
   // 認証コードのハッシュ化
   let hashedAuthCodeValue: string;
   try {
@@ -86,7 +86,7 @@ export async function generateAuthCodeInfo(
       message: "認証コードのハッシュ化に失敗しました"
     });
   }
-  
+
   const hashedAuthCodeResult = hashedAuthCodeSchema.safeParse(hashedAuthCodeValue);
   if (!hashedAuthCodeResult.success) {
     return err({
@@ -95,7 +95,7 @@ export async function generateAuthCodeInfo(
     });
   }
   const hashedAuthCode = hashedAuthCodeResult.data;
-  
+
   // 有効期限の設定
   const expirationMinutes = options.expirationMinutes || 30;
   const expiresAt = new Date();
@@ -115,7 +115,7 @@ export async function generateAuthCodeInfo(
 // 未検証認証オブジェクトを作成する
 // 検証済みの認証識別子とオプションから未検証認証を作成
 export async function createUnverifiedAuth(
-  email: ValidatedAuth,
+  validatedAuth: ValidatedAuth,
   options: {
     generateAuthCodeFn?: () => string;
     hashFn: HashFunction;
@@ -124,16 +124,16 @@ export async function createUnverifiedAuth(
 ): Promise<Result<UnverifiedAuth, AuthCodeGenerationError>> {
   // 認証コード情報を生成
   const authCodeInfoResult = await generateAuthCodeInfo(options);
-  
+
   if (authCodeInfoResult.isErr()) {
-    return authCodeInfoResult; // エラーをそのまま転送
+    return err(authCodeInfoResult.error); // エラーをそのまま転送
   }
-  
+
   const authCodeInfo = authCodeInfoResult.value;
 
   // 未検証認証オブジェクトの作成
   const unverifiedAuth: UnverifiedAuth = {
-    email,
+    info: validatedAuth,
     authCode: authCodeInfo.authCode,
     hashedAuthCode: authCodeInfo.hashedAuthCode,
     expiresAt: authCodeInfo.expiresAt,
@@ -147,12 +147,12 @@ export async function createUnverifiedAuth(
 
 // 検証済みの認証識別子と認証コード情報から未検証認証を直接作成
 export function createUnverifiedAuthFromAuthCodeInfo(
-  email: ValidatedAuth,
+  validatedAuth: ValidatedAuth,
   authCodeInfo: AuthCodeInfo
 ): Result<UnverifiedAuth, never> {
   // 未検証認証オブジェクトの作成
   const unverifiedAuth: UnverifiedAuth = {
-    email,
+    info: validatedAuth,
     authCode: authCodeInfo.authCode,
     hashedAuthCode: authCodeInfo.hashedAuthCode,
     expiresAt: authCodeInfo.expiresAt,
@@ -222,10 +222,10 @@ export function verifyAuthCodeMatch(
 
 // 検証済み認証情報を生成する純粋関数
 export function createVerifiedAuth(
-  email: ValidatedAuth
+  info: ValidatedAuth
 ): VerifiedAuth {
   return {
-    email,
+    info,
     verifiedAt: new Date()
   };
 }

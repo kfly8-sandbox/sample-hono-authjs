@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 // 基底となる認証識別子スキーマ（メールアドレスなど）
-const baseIdentifierSchema = z.string().email().max(255);
+const baseIdentifierSchema = z.object({
+  email: z.string().email().max(255),
+})
 
 // ドメインモデル：未検証の認証識別子
 export const unvalidatedAuthSchema = baseIdentifierSchema;
@@ -12,10 +14,10 @@ export const validatedAuthSchema = baseIdentifierSchema.brand<"ValidatedAuth">()
 export type ValidatedAuth = z.infer<typeof validatedAuthSchema>;
 
 // 認証コード関連の型
-export const authCodeSchema = z.string().length(6).regex(/^\d+$/).brand<"AuthCode">();
+export const authCodeSchema = z.string().length(6).regex(/^\d+$/)
 export type AuthCode = z.infer<typeof authCodeSchema>;
 
-export const hashedAuthCodeSchema = z.string().brand<"HashedAuthCode">();
+export const hashedAuthCodeSchema = z.string();
 export type HashedAuthCode = z.infer<typeof hashedAuthCodeSchema>;
 
 // 認証コード情報
@@ -29,7 +31,7 @@ export type AuthCodeInfo = z.infer<typeof authCodeInfoSchema>;
 
 // ドメインモデル：認証コードを送信したが、まだ検証されていない認証情報
 export const unverifiedAuthSchema = z.object({
-  email: validatedAuthSchema,
+  info: validatedAuthSchema,
   authCode: authCodeSchema,
   hashedAuthCode: hashedAuthCodeSchema,
   expiresAt: z.date(),
@@ -42,7 +44,7 @@ export type UnverifiedAuthId = z.infer<typeof unverifiedAuthSchema.shape.id>;
 
 // ドメインモデル：認証コードが検証された認証情報
 export const verifiedAuthSchema = z.object({
-  email: validatedAuthSchema,
+  info: validatedAuthSchema,
   verifiedAt: z.date(),
 });
 export type VerifiedAuth = z.infer<typeof verifiedAuthSchema>;
@@ -58,11 +60,11 @@ export type AuthCodeGenerationError = {
   message: string;
 };
 
-export type AuthCodeSendError = 
+export type AuthCodeSendError =
   | { type: "RATE_LIMIT_EXCEEDED"; message: string }
   | { type: "EMAIL_SENDING_FAILED"; message: string };
 
-export type AuthCodeVerificationError = 
+export type AuthCodeVerificationError =
   | { type: "INVALID_AUTH_CODE"; message: string; remainingAttempts: number }
   | { type: "AUTH_CODE_EXPIRED"; message: string }
   | { type: "ACCOUNT_LOCKED"; message: string; unlockAt: Date }

@@ -9,24 +9,24 @@ import {
 describe("Authentication Domain Models", () => {
   describe("UnvalidatedAuth", () => {
     it("should validate a proper identifier", () => {
-      const result = unvalidatedAuthSchema.safeParse("test@example.com");
+      const result = unvalidatedAuthSchema.safeParse({ email: "test@example.com" });
       expect(result.success).toBe(true);
     });
 
     it("should reject an invalid identifier", () => {
-      const result = unvalidatedAuthSchema.safeParse("not-an-email");
+      const result = unvalidatedAuthSchema.safeParse({ email: "not-an-email" });
       expect(result.success).toBe(false);
     });
   });
 
   describe("ValidatedAuth", () => {
     it("should validate a proper identifier", () => {
-      const result = validatedAuthSchema.safeParse("test@example.com");
+      const result = validatedAuthSchema.safeParse({ email: "test@example.com" });
       expect(result.success).toBe(true);
     });
 
     it("should reject an invalid identifier", () => {
-      const result = validatedAuthSchema.safeParse("not-an-email");
+      const result = validatedAuthSchema.safeParse({ email: "not-an-email" });
       expect(result.success).toBe(false);
     });
   });
@@ -37,7 +37,9 @@ describe("Authentication Domain Models", () => {
       const future = new Date(now.getTime() + 1000 * 60 * 30); // 30 minutes in the future
 
       const unverifiedAuth = {
-        email: "test@example.com",
+        info: {
+          email: "test@example.com",
+        },
         authCode: "123456",
         hashedAuthCode: "hashed-auth-code",
         expiresAt: future,
@@ -55,7 +57,9 @@ describe("Authentication Domain Models", () => {
       const future = new Date(now.getTime() + 1000 * 60 * 30);
 
       const unverifiedAuth = {
-        email: "test@example.com",
+        info: {
+          email: "test@example.com",
+        },
         authCode: "12345a", // Contains a letter
         hashedAuthCode: "hashed-auth-code",
         expiresAt: future,
@@ -73,7 +77,9 @@ describe("Authentication Domain Models", () => {
       const future = new Date(now.getTime() + 1000 * 60 * 30);
 
       const unverifiedAuth = {
-        email: "test@example.com",
+        info: {
+          email: "test@example.com",
+        },
         authCode: "12345", // Only 5 digits
         hashedAuthCode: "hashed-auth-code",
         expiresAt: future,
@@ -91,7 +97,9 @@ describe("Authentication Domain Models", () => {
       const future = new Date(now.getTime() + 1000 * 60 * 30);
 
       const unverifiedAuth = {
-        email: "test@example.com",
+        info: {
+          email: "test@example.com",
+        },
         authCode: "123456",
         hashedAuthCode: "hashed-auth-code",
         expiresAt: future,
@@ -108,7 +116,9 @@ describe("Authentication Domain Models", () => {
   describe("VerifiedAuth", () => {
     it("should validate a proper verified auth object", () => {
       const verifiedAuth = {
-        email: "test@example.com",
+        info: {
+          email: "test@example.com",
+        },
         verifiedAt: new Date(),
       };
 
@@ -118,7 +128,9 @@ describe("Authentication Domain Models", () => {
 
     it("should reject an invalid identifier", () => {
       const verifiedAuth = {
-        email: "not-an-email",
+        info: {
+          email: "not-an-email",
+        },
         verifiedAt: new Date(),
       };
 
