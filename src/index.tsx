@@ -1,4 +1,4 @@
-import SignupBlock from "@/blocks/signup";
+import { blocks } from "@/blocks";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 import { languageDetector } from "hono/language";
@@ -27,7 +27,7 @@ app.get("/", (c) => {
 });
 
 app.get("/signup", (c) => {
-  return c.render(<SignupBlock />);
+  return c.render(<blocks.signup />);
 });
 
 app.post("/signup", async (c) => {
